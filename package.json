@@ -1,0 +1,27 @@
+{
+  "name": "whatsapp-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start:bot": "tsx --watch --env-file=.env  bots/whatsapp-web-bot.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@biomejs/biome": "2.1.4",
+    "@types/node": "^24.2.1",
+    "@types/qrcode-terminal": "^0.12.2",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2",
+    "zod": "^4.0.17"
+  },
+  "dependencies": {
+    "@google/genai": "^1.14.0",
+    "qrcode-terminal": "^0.12.0",
+    "redis": "^5.8.1",
+    "whatsapp-web.js": "^1.23.0"
+  }
+}

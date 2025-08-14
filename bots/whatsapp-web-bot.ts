@@ -151,4 +151,4 @@ const generateResponse = new GenerateResponseGemini()
 const messageRepository = new RedisMessageRepository()
 const webBot = new WhatsAppWebBot(generateResponse, messageRepository)
 
-// webBot.initialize()
+webBot.initialize()

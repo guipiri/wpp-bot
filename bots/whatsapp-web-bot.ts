@@ -152,8 +152,3 @@ const messageRepository = new RedisMessageRepository()
 const webBot = new WhatsAppWebBot(generateResponse, messageRepository)
 
 webBot.initialize()
-
-// module.exports = {
-//   initialize: () => webBot.initialize(),
-//   sendMessage: (number, message) => webBot.sendMessage(number, message),
-// }

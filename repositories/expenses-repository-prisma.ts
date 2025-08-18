@@ -26,22 +26,13 @@ export class ExpensesRepositoryPrisma implements ExpensesRepository {
   }
 
   async fetchExpenses(): Promise<Expense[]> {
-    return []
+    const expenses = await prisma.expense.findMany({
+      include: { debtors: true },
+    })
+    return expenses
   }
 
   async getDebtsReport(): Promise<DebtsReport> {
     return { debts: [] }
   }
 }
-
-const prismaExpenseRepository = new ExpensesRepositoryPrisma()
-
-await prismaExpenseRepository.createExpense({
-  description: 'Dinner',
-  amount: 100,
-  payer: 'Alice',
-  debtors: [
-    { amount: 50, debtor: 'Bob' },
-    { amount: 50, debtor: 'Charlie' },
-  ],
-})

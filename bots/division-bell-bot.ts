@@ -1,22 +1,17 @@
 import qrcode from 'qrcode-terminal'
-import wppweb from 'whatsapp-web.js'
+import wppweb, { GroupParticipant } from 'whatsapp-web.js'
 import { env } from '../env'
-import { GenerateResponseGemini } from '../geminiai/generate-response'
-import type { GenerateTextResponseContract } from '../generate-response/text-contract'
-import { RedisMessageRepository } from '../redis/client'
-import type { MessageRepository } from '../repositories/messages-repository'
+import { ExpensesRepository } from '../repositories/expenses-repository'
+import { ExpensesRepositoryPrisma } from '../repositories/expenses-repository-prisma'
+import { expenseStringfy } from '../utils/expenseStringfy'
 
 const { Client, LocalAuth } = wppweb
 
 class WhatsAppWebBot {
   private client: wppweb.Client
-  private chatId = '5511991627042@c.us'
+  private groupId = '120363419257656117@g.us'
 
-  constructor(
-    private generateResponse: GenerateTextResponseContract,
-    private messageRepository: MessageRepository
-  ) {
-    this.generateResponse = generateResponse
+  constructor(private expensesRepository: ExpensesRepository) {
     this.client = new Client({
       authStrategy: new LocalAuth(),
       puppeteer: {
@@ -42,11 +37,7 @@ class WhatsAppWebBot {
 
     // Handle incoming messages
     this.client.on('message_create', async (message: wppweb.Message) => {
-      const contact = await message.getContact()
-
-      const isGroup = contact.isGroup
-
-      if (message.fromMe && !isGroup) {
+      if (message.to === this.groupId) {
         await this.handleMessage(message)
       }
     })
@@ -80,65 +71,39 @@ class WhatsAppWebBot {
 
   async handleMessage(message: wppweb.Message) {
     const contact = await message.getContact()
-    const from = message.from
-    const chat = await message.getChat()
-    const messageId = message.id.id
+    const chat = (await message.getChat()) as wppweb.GroupChat
+    const participants = chat.participants
 
-    // avoid infinite loop && answer just me
-    if (contact.name === 'Eu' && message.to === this.chatId) return
+    if (message.body.includes('/nova')) {
+      const amount = Number(message.body.split(' ')[1].replaceAll(',', '.'))
 
-    console.log(`📨 Message from ${contact.number}: ${message.body}`)
+      if (Number.isNaN(amount)) {
+        message.reply('O valor da despesa deve ser um número.')
+      }
 
-    // Save as the message to be answered
-    await this.messageRepository.saveMessageToBeAnswered({ from, messageId })
+      const payer = contact.number
+      const description = message.body.split(' ').slice(2).join(' ')
 
-    // Wait for more messages
-    await this.waitForMoreMessages()
-
-    // Set typing state and wait typing delay
-    await this.sendStateTyping(chat)
-
-    // Verify if this message should be answered
-    const getMessageToBeAnswered =
-      await this.messageRepository.getMessageToBeAnswered({ from })
-    const shouldBeAnswered = getMessageToBeAnswered === messageId
-
-    // If the message should not be answered, exit the function
-    if (!shouldBeAnswered) {
-      // Update history
-      await this.messageRepository.saveMessage({
-        from,
-        message: message.body,
-        role: 'user',
+      const debtors = participants.map(participant => {
+        return {
+          debtor: participant.id.user,
+          amount: amount / participants.length,
+        }
       })
-      return
+
+      await this.expensesRepository.createExpense({
+        amount,
+        payer,
+        description,
+        debtors,
+      })
+
+      message.reply('Despesa registrada com sucesso!')
+    } else if (message.body.includes('/despesas')) {
+      const expenses = await this.expensesRepository.fetchExpenses()
+      const response = expenseStringfy(expenses)
+      message.reply(response)
     }
-
-    // Get chat history
-    const chatHistory = await this.messageRepository.getHistory({ from })
-
-    // Process the response
-    const { response } = await this.generateResponse.exec({
-      chatHistory,
-      message: message.body,
-    })
-
-    // Update history
-    await this.messageRepository.saveMessage({
-      from,
-      message: message.body,
-      role: 'user',
-    })
-    await this.messageRepository.saveMessage({
-      from,
-      message: response,
-      role: 'model',
-    })
-
-    // Send the response
-    await this.client.sendMessage(message.from, response)
-
-    console.log(`📨 Answred ${contact.number}: ${response}`)
   }
 
   initialize() {
@@ -147,8 +112,7 @@ class WhatsAppWebBot {
   }
 }
 
-const generateResponse = new GenerateResponseGemini()
-const messageRepository = new RedisMessageRepository()
-const webBot = new WhatsAppWebBot(generateResponse, messageRepository)
+const expensesRepository = new ExpensesRepositoryPrisma()
+const webBot = new WhatsAppWebBot(expensesRepository)
 
 webBot.initialize()

@@ -12,7 +12,7 @@ export interface CreateExpenseInput {
 
 export type Expense = {
   id: number
-  date: Date
+  createdAt: Date
 } & CreateExpenseInput
 
 export interface DebtsReport {

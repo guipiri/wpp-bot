@@ -11,5 +11,16 @@ services:
     image: redislabs/redisinsight:2.70
     ports:
       - "5540:5540"
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: division-bill
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 volumes:
   redis_data:
+  postgres_data:

@@ -1,0 +1,32 @@
+export interface Debtor {
+  amount: number
+  debtor: string
+}
+
+export interface CreateExpenseInput {
+  amount: number
+  description: string
+  payer: string
+  debtors: Debtor[]
+}
+
+export type Expense = {
+  id: number
+  date: Date
+} & CreateExpenseInput
+
+export interface DebtsReport {
+  debts: Debts[]
+}
+
+export interface Debts {
+  amount: number
+  debtor: string
+  receiver: string
+}
+
+export interface ExpensesRepository {
+  createExpense(input: CreateExpenseInput): Promise<void>
+  fetchExpenses(): Promise<Expense[]>
+  getDebtsReport(): Promise<DebtsReport>
+}

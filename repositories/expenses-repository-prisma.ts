@@ -32,7 +32,45 @@ export class ExpensesRepositoryPrisma implements ExpensesRepository {
     return expenses
   }
 
-  async getDebtsReport(): Promise<DebtsReport> {
-    return { debts: [] }
+  async updateExpense({
+    id,
+    amount,
+    description,
+    debtors,
+  }: Partial<CreateExpenseInput> & { id: number }) {
+    await prisma.expense.update({
+      where: { id },
+      data: {
+        amount,
+        description,
+        debtors: {
+          create: debtors?.map(debtor => ({
+            amount: debtor.amount,
+            debtor: debtor.debtor,
+          })),
+        },
+      },
+    })
+  }
+
+  async deleteExpensive(id: number): Promise<void> {
+    const expense = await prisma.expense.findUnique({
+      where: { id },
+      include: { debtors: true },
+    })
+
+    if (!expense) {
+      throw new Error(`Expense with id ${id} not found`)
+    }
+
+    await prisma.debtor.deleteMany({
+      where: {
+        expenseId: id,
+      },
+    })
+    await prisma.expense.delete({
+      where: { id },
+      include: { debtors: true },
+    })
   }
 }

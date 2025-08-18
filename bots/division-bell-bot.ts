@@ -73,8 +73,9 @@ class WhatsAppWebBot {
     const contact = await message.getContact()
     const chat = (await message.getChat()) as wppweb.GroupChat
     const participants = chat.participants
+    const body = message.body.toLocaleLowerCase()
 
-    if (message.body.includes('/nova')) {
+    if (body.includes('/nova')) {
       const amount = Number(message.body.split(' ')[1].replaceAll(',', '.'))
 
       if (Number.isNaN(amount)) {
@@ -82,7 +83,11 @@ class WhatsAppWebBot {
       }
 
       const payer = contact.number
-      const description = message.body.split(' ').slice(2).join(' ')
+      const description = message.body
+        .split(' ')
+        .slice(2)
+        .join(' ')
+        .toUpperCase()
 
       const debtors = participants.map(participant => {
         return {
@@ -99,10 +104,48 @@ class WhatsAppWebBot {
       })
 
       message.reply('Despesa registrada com sucesso!')
-    } else if (message.body.includes('/despesas')) {
+    } else if (body.includes('/despesas')) {
       const expenses = await this.expensesRepository.fetchExpenses()
       const response = expenseStringfy(expenses)
       message.reply(response)
+    } else if (body.includes('/deleta')) {
+      const expenseId = Number(body.split(' ')[1])
+
+      if (Number.isNaN(expenseId)) {
+        message.reply('O id da despesa deve ser um número.')
+      }
+
+      try {
+        await this.expensesRepository.deleteExpensive(expenseId)
+        message.reply('Despesa deletada com sucesso!')
+      } catch (error: unknown) {
+        message.reply((error as Error)?.message || 'Erro ao deletar despesa.')
+      }
+    } else if (body.includes('/atualiza')) {
+      const expenseId = Number(body.split(' ')[1])
+      const amount = Number(message.body.split(' ')[2].replaceAll(',', '.'))
+      const description = message.body
+        .split(' ')
+        .slice(3)
+        .join(' ')
+        .toUpperCase()
+
+      if (Number.isNaN(amount) || Number.isNaN(expenseId)) {
+        message.reply('O valor da despesa deve ser um número.')
+      }
+
+      if (Number.isNaN(expenseId)) {
+        message.reply('O id da despesa deve ser um número.')
+      }
+
+      try {
+        await this.expensesRepository.updateExpense({
+          id: expenseId,
+        })
+        message.reply('Despesa atualizada com sucesso!')
+      } catch (error: unknown) {
+        message.reply((error as Error)?.message || 'Erro ao atualizar despesa.')
+      }
     }
   }
 

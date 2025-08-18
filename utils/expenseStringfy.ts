@@ -7,6 +7,7 @@ export function expenseStringfy(expenses: Expense[]): string {
         .map(debtor => `- ${debtor.debtor}: R$ ${debtor.amount.toFixed(2)}`)
         .join('\n')
       return `*${expense.description.toLocaleUpperCase()}*
+  Id: ${expense.id}
   R$ ${expense.amount.toFixed(2)}
   Paga por: ${expense.payer}
   Devedores:

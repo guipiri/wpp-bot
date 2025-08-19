@@ -8,8 +8,9 @@ import type {
 const prisma = new PrismaClient()
 
 export class ExpensesRepositoryPrisma implements ExpensesRepository {
-  async createExpense(input: CreateExpenseInput): Promise<void> {
-    await prisma.expense.create({
+  async createExpense(input: CreateExpenseInput): Promise<Expense> {
+    const expense = await prisma.expense.create({
+      include: { debtors: true },
       data: {
         description: input.description,
         amount: input.amount,
@@ -22,6 +23,8 @@ export class ExpensesRepositoryPrisma implements ExpensesRepository {
         },
       },
     })
+
+    return expense
   }
 
   async fetchExpenses(): Promise<Expense[]> {

@@ -1,4 +1,7 @@
-export function splitAmountEqually(amount: number, countDebtors: number) {
+export function splitAmountEqually(
+  amount: number,
+  countDebtors: number
+): number[] {
   if (countDebtors === 0) {
     throw new Error('Não é possível dividir o valor entre zero devedores.')
   }

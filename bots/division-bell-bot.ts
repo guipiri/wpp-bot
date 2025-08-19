@@ -1,8 +1,10 @@
 import qrcode from 'qrcode-terminal'
-import wppweb, { GroupParticipant } from 'whatsapp-web.js'
+import wppweb from 'whatsapp-web.js'
 import { env } from '../env'
-import { ExpensesRepository } from '../repositories/expenses-repository'
+import type { ExpensesRepository } from '../repositories/expenses-repository'
 import { ExpensesRepositoryPrisma } from '../repositories/expenses-repository-prisma'
+import { CreateExpenseUseCase } from '../use-cases/create-expense'
+import { UpdateExpenseUseCase } from '../use-cases/update-expense'
 import { expenseStringfy } from '../utils/expenseStringfy'
 
 const { Client, LocalAuth } = wppweb
@@ -11,7 +13,11 @@ class WhatsAppWebBot {
   private client: wppweb.Client
   private groupId = '120363419257656117@g.us'
 
-  constructor(private expensesRepository: ExpensesRepository) {
+  constructor(
+    private expensesRepository: ExpensesRepository,
+    private createExpenseUseCase: CreateExpenseUseCase,
+    private updateExpenseUseCase: UpdateExpenseUseCase
+  ) {
     this.client = new Client({
       authStrategy: new LocalAuth(),
       puppeteer: {
@@ -79,7 +85,7 @@ class WhatsAppWebBot {
       const amount = Number(message.body.split(' ')[1].replaceAll(',', '.'))
 
       if (Number.isNaN(amount)) {
-        message.reply('O valor da despesa deve ser um número.')
+        return message.reply('O valor da despesa deve ser um número.')
       }
 
       const payer = contact.number
@@ -92,18 +98,23 @@ class WhatsAppWebBot {
       const debtors = participants.map(participant => {
         return {
           debtor: participant.id.user,
-          amount: amount / participants.length,
         }
       })
 
-      await this.expensesRepository.createExpense({
-        amount,
-        payer,
-        description,
-        debtors,
-      })
-
-      message.reply('Despesa registrada com sucesso!')
+      try {
+        const expenseCreated = await this.createExpenseUseCase.executeEqually({
+          amount,
+          description,
+          payer,
+          debtors,
+        })
+        message.reply(
+          'Despesa registrada com sucesso!\n' +
+            expenseStringfy([expenseCreated])
+        )
+      } catch (error: unknown) {
+        message.reply((error as Error)?.message)
+      }
     } else if (body.includes('/despesas')) {
       const expenses = await this.expensesRepository.fetchExpenses()
       const response = expenseStringfy(expenses)
@@ -116,7 +127,7 @@ class WhatsAppWebBot {
       }
 
       try {
-        await this.expensesRepository.deleteExpensive(expenseId)
+        // await this.deleteExpensive(expenseId)
         message.reply('Despesa deletada com sucesso!')
       } catch (error: unknown) {
         message.reply((error as Error)?.message || 'Erro ao deletar despesa.')
@@ -131,18 +142,18 @@ class WhatsAppWebBot {
         .toUpperCase()
 
       if (Number.isNaN(amount) || Number.isNaN(expenseId)) {
-        message.reply('O valor da despesa deve ser um número.')
-      }
-
-      if (Number.isNaN(expenseId)) {
-        message.reply('O id da despesa deve ser um número.')
+        message.reply('O valor e o id da despesa deve ser um número.')
       }
 
       try {
-        await this.expensesRepository.updateExpense({
+        const expenseUpdated = await this.updateExpenseUseCase.execute({
           id: expenseId,
+          data: { amount, description },
         })
-        message.reply('Despesa atualizada com sucesso!')
+        message.reply(
+          'Despesa atualizada com sucesso!\n' +
+            expenseStringfy([expenseUpdated])
+        )
       } catch (error: unknown) {
         message.reply((error as Error)?.message || 'Erro ao atualizar despesa.')
       }
@@ -156,6 +167,13 @@ class WhatsAppWebBot {
 }
 
 const expensesRepository = new ExpensesRepositoryPrisma()
-const webBot = new WhatsAppWebBot(expensesRepository)
+const createExpenseUseCase = new CreateExpenseUseCase(expensesRepository)
+const updateExpenseUseCase = new UpdateExpenseUseCase(expensesRepository)
+// const deleteExpenseUseCase = new DeleteExpenseUseCase(expensesRepository)
+const webBot = new WhatsAppWebBot(
+  expensesRepository,
+  createExpenseUseCase,
+  updateExpenseUseCase
+)
 
 webBot.initialize()

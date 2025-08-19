@@ -27,6 +27,7 @@ export class UpdateExpenseUseCase {
       expense.debtors = expense.debtors.map((debtor, idx) => {
         return { ...debtor, amount: debtorAmount[idx] }
       })
+      expense.amount = amount
     }
 
     if (debtors && amount) {

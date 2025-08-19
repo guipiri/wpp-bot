@@ -3,7 +3,7 @@ import wppweb from 'whatsapp-web.js'
 import { env } from '../env'
 import { GenerateResponseGemini } from '../geminiai/generate-response'
 import type { GenerateTextResponseContract } from '../generate-response/text-contract'
-import { RedisMessageRepository } from '../redis/client'
+import { RedisMessageRepository } from '../repositories/message-repository-redis'
 import type { MessageRepository } from '../repositories/messages-repository'
 
 const { Client, LocalAuth } = wppweb

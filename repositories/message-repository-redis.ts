@@ -1,5 +1,5 @@
 import { createClient } from 'redis'
-import type { MessageRepository } from '../repositories/messages-repository'
+import type { MessageRepository } from './messages-repository'
 
 const redisClient = await createClient()
   .on('error', err => console.log('Redis Client Error', err))

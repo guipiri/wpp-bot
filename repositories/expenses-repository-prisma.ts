@@ -1,7 +1,6 @@
 import { PrismaClient } from '../generated/prisma'
 import type {
   CreateExpenseInput,
-  DebtsReport,
   Expense,
   ExpensesRepository,
 } from './expenses-repository'
@@ -32,6 +31,14 @@ export class ExpensesRepositoryPrisma implements ExpensesRepository {
     return expenses
   }
 
+  async getExpenseById(id: number): Promise<Expense | null> {
+    const expense = await prisma.expense.findUnique({
+      where: { id },
+      include: { debtors: true },
+    })
+    return expense
+  }
+
   async updateExpense({
     id,
     amount,
@@ -43,31 +50,31 @@ export class ExpensesRepositoryPrisma implements ExpensesRepository {
       data: {
         amount,
         description,
-        debtors: {
-          create: debtors?.map(debtor => ({
-            amount: debtor.amount,
-            debtor: debtor.debtor,
-          })),
-        },
       },
     })
-  }
 
-  async deleteExpensive(id: number): Promise<void> {
-    const expense = await prisma.expense.findUnique({
-      where: { id },
-      include: { debtors: true },
-    })
-
-    if (!expense) {
-      throw new Error(`Expense with id ${id} not found`)
+    if (debtors && debtors.length > 0) {
+      // Remove existing debtors
+      await prisma.debtor.deleteMany({ where: { expenseId: id } })
+      // Add new debtors
+      await prisma.debtor.createMany({
+        data: debtors.map(debtor => ({
+          amount: debtor.amount,
+          debtor: debtor.debtor,
+          expenseId: id,
+        })),
+      })
     }
 
-    await prisma.debtor.deleteMany({
-      where: {
-        expenseId: id,
-      },
-    })
+    const expense = (await prisma.expense.findUnique({
+      where: { id },
+      include: { debtors: true },
+    })) as Expense
+
+    return expense
+  }
+
+  async deleteExpense(id: number): Promise<void> {
     await prisma.expense.delete({
       where: { id },
       include: { debtors: true },

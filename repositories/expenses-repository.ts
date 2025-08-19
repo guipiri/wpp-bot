@@ -28,8 +28,9 @@ export interface Debts {
 export interface ExpensesRepository {
   createExpense(input: CreateExpenseInput): Promise<void>
   fetchExpenses(): Promise<Expense[]>
+  getExpenseById(id: number): Promise<Expense | null>
   updateExpense(
     input: Partial<CreateExpenseInput> & { id: number }
-  ): Promise<void>
-  deleteExpensive(id: number): Promise<void>
+  ): Promise<Expense>
+  deleteExpense(id: number): Promise<void>
 }

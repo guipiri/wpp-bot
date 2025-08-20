@@ -78,9 +78,12 @@ export class ExpensesRepositoryPrisma implements ExpensesRepository {
   }
 
   async deleteExpense(id: number): Promise<void> {
-    await prisma.expense.delete({
-      where: { id },
-      include: { debtors: true },
-    })
+    const expense = await this.getExpenseById(id)
+    if (!expense) {
+      throw new Error('Despesa não encontrada.')
+    }
+    await prisma.debtor.deleteMany({ where: { expenseId: id } })
+
+    await prisma.expense.delete({ where: { id } })
   }
 }

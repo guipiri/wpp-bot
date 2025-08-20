@@ -1,11 +1,9 @@
 import qrcode from 'qrcode-terminal'
 import wppweb from 'whatsapp-web.js'
+import { ExpenseBotController } from '../bot-controller/expense-controller'
 import { env } from '../env'
-import type { ExpensesRepository } from '../repositories/expenses-repository'
 import { ExpensesRepositoryPrisma } from '../repositories/expenses-repository-prisma'
-import { CreateExpenseUseCase } from '../use-cases/create-expense'
-import { UpdateExpenseUseCase } from '../use-cases/update-expense'
-import { expenseStringfy } from '../utils/expenseStringfy'
+import { ExpensesService } from '../service/expense-service'
 
 const { Client, LocalAuth } = wppweb
 
@@ -13,11 +11,7 @@ class WhatsAppWebBot {
   private client: wppweb.Client
   private groupId = '120363419257656117@g.us'
 
-  constructor(
-    private expensesRepository: ExpensesRepository,
-    private createExpenseUseCase: CreateExpenseUseCase,
-    private updateExpenseUseCase: UpdateExpenseUseCase
-  ) {
+  constructor(private expenseBotController: ExpenseBotController) {
     this.client = new Client({
       authStrategy: new LocalAuth(),
       puppeteer: {
@@ -76,87 +70,16 @@ class WhatsAppWebBot {
   }
 
   async handleMessage(message: wppweb.Message) {
-    const contact = await message.getContact()
-    const chat = (await message.getChat()) as wppweb.GroupChat
-    const participants = chat.participants
     const body = message.body.toLocaleLowerCase()
 
     if (body.includes('/nova')) {
-      const amount = Number(message.body.split(' ')[1].replaceAll(',', '.'))
-
-      if (Number.isNaN(amount)) {
-        return message.reply('O valor da despesa deve ser um número.')
-      }
-
-      const payer = contact.number
-      const description = message.body
-        .split(' ')
-        .slice(2)
-        .join(' ')
-        .toUpperCase()
-
-      const debtors = participants.map(participant => {
-        return {
-          debtor: participant.id.user,
-        }
-      })
-
-      try {
-        const expenseCreated = await this.createExpenseUseCase.executeEqually({
-          amount,
-          description,
-          payer,
-          debtors,
-        })
-        message.reply(
-          'Despesa registrada com sucesso!\n' +
-            expenseStringfy([expenseCreated])
-        )
-      } catch (error: unknown) {
-        message.reply((error as Error)?.message)
-      }
+      await this.expenseBotController.handleCreateExpense(message)
     } else if (body.includes('/despesas')) {
-      const expenses = await this.expensesRepository.fetchExpenses()
-      const response = expenseStringfy(expenses)
-      message.reply(response)
+      await this.expenseBotController.handleFetchExpenses(message)
     } else if (body.includes('/deleta')) {
-      const expenseId = Number(body.split(' ')[1])
-
-      if (Number.isNaN(expenseId)) {
-        message.reply('O id da despesa deve ser um número.')
-      }
-
-      try {
-        // await this.deleteExpensive(expenseId)
-        message.reply('Despesa deletada com sucesso!')
-      } catch (error: unknown) {
-        message.reply((error as Error)?.message || 'Erro ao deletar despesa.')
-      }
+      await this.expenseBotController.handleDeleteExpense(message)
     } else if (body.includes('/atualiza')) {
-      const expenseId = Number(body.split(' ')[1])
-      const amount = Number(message.body.split(' ')[2].replaceAll(',', '.'))
-      const description = message.body
-        .split(' ')
-        .slice(3)
-        .join(' ')
-        .toUpperCase()
-
-      if (Number.isNaN(amount) || Number.isNaN(expenseId)) {
-        message.reply('O valor e o id da despesa deve ser um número.')
-      }
-
-      try {
-        const expenseUpdated = await this.updateExpenseUseCase.execute({
-          id: expenseId,
-          data: { amount, description },
-        })
-        message.reply(
-          'Despesa atualizada com sucesso!\n' +
-            expenseStringfy([expenseUpdated])
-        )
-      } catch (error: unknown) {
-        message.reply((error as Error)?.message || 'Erro ao atualizar despesa.')
-      }
+      await this.expenseBotController.handleUpdateExpense(message)
     }
   }
 
@@ -166,14 +89,10 @@ class WhatsAppWebBot {
   }
 }
 
-const expensesRepository = new ExpensesRepositoryPrisma()
-const createExpenseUseCase = new CreateExpenseUseCase(expensesRepository)
-const updateExpenseUseCase = new UpdateExpenseUseCase(expensesRepository)
-// const deleteExpenseUseCase = new DeleteExpenseUseCase(expensesRepository)
-const webBot = new WhatsAppWebBot(
-  expensesRepository,
-  createExpenseUseCase,
-  updateExpenseUseCase
-)
+const expensesPrismaRepository = new ExpensesRepositoryPrisma()
+const expenseService = new ExpensesService(expensesPrismaRepository)
+const expenseBotController = new ExpenseBotController(expenseService)
+
+const webBot = new WhatsAppWebBot(expenseBotController)
 
 webBot.initialize()

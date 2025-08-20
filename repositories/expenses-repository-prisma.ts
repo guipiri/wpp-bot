@@ -1,11 +1,9 @@
-import { PrismaClient } from '../generated/prisma'
+import { prisma } from '../prisma/client'
 import type {
   CreateExpenseInput,
   Expense,
   ExpensesRepository,
 } from './expenses-repository'
-
-const prisma = new PrismaClient()
 
 export class ExpensesRepositoryPrisma implements ExpensesRepository {
   async createExpense(input: CreateExpenseInput): Promise<Expense> {

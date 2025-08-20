@@ -90,6 +90,8 @@ class WhatsAppWebBot {
       await this.expenseBotController.handleUpdateExpense(message)
     } else if (body.includes('/ajuda')) {
       await this.basicsBotController.handleHelpMessage(message)
+    } else if (body.includes('/resumo')) {
+      await this.expenseBotController.handleReport(message)
     }
   }
 

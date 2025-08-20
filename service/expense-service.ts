@@ -100,4 +100,61 @@ export class ExpensesService {
 
     await this.expensesRepository.deleteExpense(id)
   }
+
+  async generateReport(): Promise<string> {
+    const expenses = await this.expensesRepository.fetchExpenses()
+
+    if (expenses.length === 0) {
+      return 'Não há despesas registradas.'
+    }
+
+    const reportMap = new Map<
+      string,
+      { owes: Map<string, number>; isOwed: number }
+    >()
+
+    expenses.forEach(expense => {
+      // Initialize payer in reportMap if not present
+      if (!reportMap.has(expense.payer)) {
+        reportMap.set(expense.payer, { owes: new Map(), isOwed: 0 })
+      }
+
+      // Add to payer's 'isOwed' amount
+      reportMap.get(expense.payer)!.isOwed += expense.amount
+
+      expense.debtors.forEach(debtor => {
+        // Initialize debtor in reportMap if not present
+        if (!reportMap.has(debtor.debtor)) {
+          reportMap.set(debtor.debtor, { owes: new Map(), isOwed: 0 })
+        }
+
+        // Add to debtor's 'owes' amount to the payer
+        const currentOwes =
+          reportMap.get(debtor.debtor)!.owes.get(expense.payer) || 0
+
+        reportMap
+          .get(debtor.debtor)!
+          .owes.set(expense.payer, currentOwes + debtor.amount)
+      })
+    })
+
+    let reportString = 'Relatório de Despesas:\n\n'
+
+    reportMap.forEach((data, participant) => {
+      reportString += `*${participant}*\n`
+
+      let totalOwedByParticipant = 0
+      data.owes.forEach((amount, toWhom) => {
+        reportString += `  Deve ${amount.toFixed(2)} para ${toWhom}\n`
+        totalOwedByParticipant += amount
+      })
+
+      const netBalance = data.isOwed - totalOwedByParticipant
+      reportString += `  Total pago: ${data.isOwed.toFixed(2)}\n`
+      reportString += `  Total devido: ${totalOwedByParticipant.toFixed(2)}\n`
+      reportString += `  Saldo: ${netBalance.toFixed(2)}\n\n`
+    })
+
+    return reportString
+  }
 }

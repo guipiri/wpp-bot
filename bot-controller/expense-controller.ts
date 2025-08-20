@@ -89,4 +89,9 @@ export class ExpenseBotController {
       message.reply((error as Error)?.message || 'Erro ao atualizar despesa.')
     }
   }
+
+  async handleReport(message: WAWebJS.Message): Promise<WAWebJS.Message> {
+    const report = await this.expensesService.generateReport()
+    return message.reply(report)
+  }
 }

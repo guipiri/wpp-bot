@@ -1,17 +1,21 @@
 import qrcode from 'qrcode-terminal'
-import wppweb from 'whatsapp-web.js'
+import WAWebJS from 'whatsapp-web.js'
+import { BasicBotController } from '../bot-controller/basics-controller'
 import { ExpenseBotController } from '../bot-controller/expense-controller'
 import { env } from '../env'
 import { ExpensesRepositoryPrisma } from '../repositories/expenses-repository-prisma'
 import { ExpensesService } from '../service/expense-service'
 
-const { Client, LocalAuth } = wppweb
+const { Client, LocalAuth } = WAWebJS
 
 class WhatsAppWebBot {
-  private client: wppweb.Client
+  private client: WAWebJS.Client
   private groupId = '120363419257656117@g.us'
 
-  constructor(private expenseBotController: ExpenseBotController) {
+  constructor(
+    private expenseBotController: ExpenseBotController,
+    private basicsBotController: BasicBotController
+  ) {
     this.client = new Client({
       authStrategy: new LocalAuth(),
       puppeteer: {
@@ -36,8 +40,12 @@ class WhatsAppWebBot {
     })
 
     // Handle incoming messages
-    this.client.on('message_create', async (message: wppweb.Message) => {
-      if (message.to === this.groupId) {
+    this.client.on('message_create', async (message: WAWebJS.Message) => {
+      // Filter messages sent to group and not from the bot
+      if (
+        (message.to === this.groupId || message.from === this.groupId) &&
+        message.author !== undefined
+      ) {
         await this.handleMessage(message)
       }
     })
@@ -58,7 +66,7 @@ class WhatsAppWebBot {
     })
   }
 
-  async sendStateTyping(chat: wppweb.Chat) {
+  async sendStateTyping(chat: WAWebJS.Chat) {
     chat.sendStateTyping()
     await new Promise(resolve => setTimeout(resolve, env.TYPING_DELAY))
   }
@@ -69,7 +77,7 @@ class WhatsAppWebBot {
     )
   }
 
-  async handleMessage(message: wppweb.Message) {
+  async handleMessage(message: WAWebJS.Message) {
     const body = message.body.toLocaleLowerCase()
 
     if (body.includes('/nova')) {
@@ -80,6 +88,8 @@ class WhatsAppWebBot {
       await this.expenseBotController.handleDeleteExpense(message)
     } else if (body.includes('/atualiza')) {
       await this.expenseBotController.handleUpdateExpense(message)
+    } else if (body.includes('/ajuda')) {
+      await this.basicsBotController.handleHelpMessage(message)
     }
   }
 
@@ -92,7 +102,8 @@ class WhatsAppWebBot {
 const expensesPrismaRepository = new ExpensesRepositoryPrisma()
 const expenseService = new ExpensesService(expensesPrismaRepository)
 const expenseBotController = new ExpenseBotController(expenseService)
+const basicsBotController = new BasicBotController()
 
-const webBot = new WhatsAppWebBot(expenseBotController)
+const webBot = new WhatsAppWebBot(expenseBotController, basicsBotController)
 
 webBot.initialize()
